@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+import sys
+import subprocess
+subprocess.Popen("make setup;", shell=True, stdout=subprocess.PIPE,
+    stderr=sys.stdout.fileno()).wait()
+from API import connection
+from commands import help_command,book_command,details_command,cancel_command,login_command,volunteer_command
+from user import authentication
+import sys
+import data.exporter as exp
+
+def main():
+
+    cc_calendar = connection.build_calendar()
+    if cc_calendar:
+        cc_events = connection.get_events(cc_calendar)
+    else:
+        connection.login_calendar()
+        raise NotImplementedError()
+    args = len(sys.argv)-1
+    user = authentication.verify_token('user')
+    if not args or sys.argv[1].lower() == 'help':
+        msg = (help_command.do_help())
+    elif args and sys.argv[1].lower() == 'login':
+        msg = login_command.login(cc_events)
+        with open('.data/log.txt', 'w') as log:
+            log.write('')
+    elif not user:
+        msg = ('Please log in before attempting to run any commands other than help.')
+    elif args == 1 and sys.argv[1].lower() == 'volunteer':
+        msg = (volunteer_command.volunteer_info(cc_events)) 
+    elif sys.argv[1].lower() == 'volunteer':
+        msg = (volunteer_command.volunteer(cc_calendar,cc_events,user,sys.argv[2:]))
+    elif args == 1 and sys.argv[1].lower() == 'book':
+        msg = (book_command.book_info(cc_events,user))
+    elif sys.argv[1].lower() == 'book':
+        msg = (book_command.book_event(cc_calendar,cc_events,sys.argv[2],user))
+    elif args == 1 and sys.argv[1].lower() == 'cancel':
+        msg = (cancel_command.cancel_info(cc_events,user))
+    elif sys.argv[1].lower() == 'cancel':
+        msg = (cancel_command.cancel_event(cc_calendar,cc_events,sys.argv[2],user))
+    elif args == 1 and sys.argv[1].lower() == 'details':
+        msg = (details_command.details_info(cc_events, user))
+    elif sys.argv[1].lower() == 'details':
+        msg = (details_command.details_event(cc_events, user, event_id=sys.argv[2]))
+
+    print(msg)
+    with open('.data/log.txt', 'a') as log:
+        log.write(msg+'\n')
+    exp.export_ical(cc_events)
+
+
+if __name__ == '__main__':
+    main()
